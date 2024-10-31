@@ -65,7 +65,7 @@ data_without_seasonal = df['value'] / result.seasonal
 plt.plot(data_without_seasonal, label='Original Data without Seasonal Component', color='green')
 plt.title('art_daily_nojump with and without Seasonal Component')
 plt.xlabel('Day')
-plt.ylabel('Number of Passengers')
+plt.ylabel('value')
 plt.legend()
 plt.show()
 
@@ -130,18 +130,18 @@ plt.title('Autocorrelation plot')
 # d = 0 because no differencing is needed
 # Find q - the number of lags where ACF cuts off
 # Find p - the number of lags where PACF cuts off
-plot_acf(cleaned_df1['value'], lags = 500)
+plot_acf(cleaned_df1['value'], lags = 50)
 plt.title('ACF')
-plt.show() # Result shows q = 1
+plt.show()
 
 
-plot_pacf(cleaned_df1['value'], lags = 500)
+plot_pacf(cleaned_df1['value'], lags = 50)
 plt.title('PACF')
-plt.show() # Result shows p = 1
+plt.show()
 
 # Fit the ARIMA model
 # Initial ARIMA Model parameters
-p, d, q = 1, 0, 1
+p, d, q = 1, 0, 0
 model = ARIMA(cleaned_df1, order=(p, d, q))
 model_fit = model.fit()
 model_summary = model_fit.summary()
