@@ -141,7 +141,7 @@ plt.show() # Result shows p = 1
 
 # Fit the ARIMA model
 # Initial ARIMA Model parameters
-p, d, q = 5, 0, 1
+p, d, q = 1, 0, 1
 model = ARIMA(cleaned_df1, order=(p, d, q))
 model_fit = model.fit()
 model_summary = model_fit.summary()
