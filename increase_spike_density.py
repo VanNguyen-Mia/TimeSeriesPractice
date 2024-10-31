@@ -14,7 +14,7 @@ from sklearn.metrics import root_mean_squared_error
 # from statsmodels.tsa.stattools import adfuller
 
 ## READ THE DATA 
-df = pd.read_csv('./art_daily_flatmiddle.csv')
+df = pd.read_csv('./art_increase_spike_density.csv')
 
 ################################ TASK 1: SEASONALIY ANAYSIS #####################################
 # Getting descriptive statistics
@@ -33,7 +33,7 @@ print(df.dtypes)
 # Plot the original time series data
 plt.figure(figsize=(7, 5))
 plt.plot(df, label='Original Time Series')
-plt.title('art_daily_flatmiddle')
+plt.title('art_increase_spike_density')
 plt.xlabel('timestamp')
 plt.ylabel('value')
 plt.legend()
@@ -43,14 +43,14 @@ plt.show()
 df = df.asfreq('5min')
 result = seasonal_decompose(df['value'], model='additive', extrapolate_trend='freq', period=288)
 result.plot()
-plt.suptitle('Seasonal Decomposition of art-daily-flatmiddle')
+plt.suptitle('Seasonal Decomposition of art_increase_spike_density')
 plt.tight_layout()
 plt.show()
 
 # Plot the seasonal component
 plt.figure(figsize=(6, 4))
 plt.plot(result.seasonal, label='Seasonal Component')
-plt.title('Seasonal Component of art-daily-flatmiddle')
+plt.title('Seasonal Component of art-increase_spike_density')
 plt.xlabel('Day')
 plt.ylabel('Seasonal Component')
 plt.legend()
@@ -63,7 +63,7 @@ plt.plot(df, label='Original Time Series', color='blue')
 data_without_seasonal = df['value'] / result.seasonal
 # Plot the original data without the seasonal component
 plt.plot(data_without_seasonal, label='Original Data without Seasonal Component', color='green')
-plt.title('art_daily_flatmiddle with and without Seasonal Component')
+plt.title('art_increase_spike_density with and without Seasonal Component')
 plt.xlabel('Day')
 plt.ylabel('Number of Passengers')
 plt.legend()
@@ -105,17 +105,17 @@ print(cleaned_df2)
 
 ################################ TASK 3: FORECAST TIME SERIES USING ARIMA ########################################
 # Check for stationarity:
-result = adfuller(cleaned_df2["value"])
+result = adfuller(df["value"])
 print(f"ADF Statistic: {result[0]}")
 print(f"p-value: {result[1]}")
 
 # Fill missing values
-cleaned_df2.fillna(method='ffill', inplace=True)
+df.fillna(method='ffill', inplace=True)
 
 # Perform differencing:
 if result[1] > 0.05:  
-    cleaned_df2["value"] = cleaned_df2["value"].diff().dropna()
-    result = adfuller(cleaned_df2["value"])
+    df["value"] = df["value"].diff().dropna()
+    result = adfuller(df["value"])
 stationarity_interpretation = "Stationary" if result[1] < 0.05 else "Non-Stationary"
 
 print(f"ADF Statistic after differencing: {result[0]}")
@@ -124,25 +124,25 @@ print(f"Interpretation: The series is {stationarity_interpretation}.")
 
 # Finding the ARIMA terms
 # Finding lags:
-pd.plotting.autocorrelation_plot(cleaned_df2)
+pd.plotting.autocorrelation_plot(df)
 plt.title('Autocorrelation plot')
 
 # d = 0 because no differencing is needed
 # Find q - the number of lags where ACF cuts off
 # Find p - the number of lags where PACF cuts off
-plot_acf(cleaned_df2['value'], lags = 500)
+plot_acf(df['value'], lags = 500)
 plt.title('ACF')
 plt.show() # Result shows q = 1
 
 
-plot_pacf(cleaned_df2['value'], lags = 500)
+plot_pacf(df['value'], lags = 500)
 plt.title('PACF')
 plt.show() # Result shows p = 1
 
 # Fit the ARIMA model
 # Initial ARIMA Model parameters
 p, d, q = 1, 0, 1
-model = ARIMA(cleaned_df2, order=(p, d, q))
+model = ARIMA(df, order=(p, d, q))
 model_fit = model.fit()
 model_summary = model_fit.summary()
 print('Model summary:', {model_summary})
@@ -162,7 +162,7 @@ print(f"BIC: {model_fit.bic}")
 
 ## Forecasting
 # Use a train/test workflow
-data = cleaned_df2['value']
+data = df['value']
 train_size = int(len(data) * 0.8)
 train, test = data[:train_size], data[train_size:]
 # Fit the model to training data. Replace p, d, q with our ARIMA parameters

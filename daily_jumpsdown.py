@@ -14,7 +14,7 @@ from sklearn.metrics import root_mean_squared_error
 # from statsmodels.tsa.stattools import adfuller
 
 ## READ THE DATA 
-df = pd.read_csv('./art_daily_flatmiddle.csv')
+df = pd.read_csv('./art_daily_jumpsdown.csv')
 
 ################################ TASK 1: SEASONALIY ANAYSIS #####################################
 # Getting descriptive statistics
@@ -33,7 +33,7 @@ print(df.dtypes)
 # Plot the original time series data
 plt.figure(figsize=(7, 5))
 plt.plot(df, label='Original Time Series')
-plt.title('art_daily_flatmiddle')
+plt.title('art_daily_jumpsdown')
 plt.xlabel('timestamp')
 plt.ylabel('value')
 plt.legend()
@@ -43,14 +43,14 @@ plt.show()
 df = df.asfreq('5min')
 result = seasonal_decompose(df['value'], model='additive', extrapolate_trend='freq', period=288)
 result.plot()
-plt.suptitle('Seasonal Decomposition of art-daily-flatmiddle')
+plt.suptitle('Seasonal Decomposition of art-daily-jumpsdown')
 plt.tight_layout()
 plt.show()
 
 # Plot the seasonal component
 plt.figure(figsize=(6, 4))
 plt.plot(result.seasonal, label='Seasonal Component')
-plt.title('Seasonal Component of art-daily-flatmiddle')
+plt.title('Seasonal Component of art-daily-jumpsdown')
 plt.xlabel('Day')
 plt.ylabel('Seasonal Component')
 plt.legend()
@@ -63,7 +63,7 @@ plt.plot(df, label='Original Time Series', color='blue')
 data_without_seasonal = df['value'] / result.seasonal
 # Plot the original data without the seasonal component
 plt.plot(data_without_seasonal, label='Original Data without Seasonal Component', color='green')
-plt.title('art_daily_flatmiddle with and without Seasonal Component')
+plt.title('art_daily_jumpsdown with and without Seasonal Component')
 plt.xlabel('Day')
 plt.ylabel('Number of Passengers')
 plt.legend()
