@@ -4,13 +4,29 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 import matplotlib.pyplot as plt
-import seaborn as sns
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.stattools import adfuller
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from sklearn.metrics import mean_squared_error
 from sktime.split import temporal_train_test_split
+from math import sqrt
+import pmdarima as pm
+
+# Create directory
+def create_plot_directory(save_path: str, subfolder: str = "images") -> str:
+    """
+    Create directory for saving plot images if they don't exist
+
+    Args:
+        save_path (str): path to the parent folder
+        subfolder (str): subfolder name for plots
+
+    Returns:
+        str: path to the created subfolder
+    """
+    images_folder = os.path.join(save_path, subfolder)
+    os.makedirs(images_folder, exist_ok=True)
+    return images_folder
 
 # 1. Load data
 def read_data(file_path: str) -> pd.DataFrame:
@@ -42,7 +58,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
     print("Descriptive statistics:")
     print(df.describe(include='all').T)
-    print("\nMissing values analysis:")
+    print("Missing values analysis:")
     print(df[df.isna().any(axis=1)])
 
     return df.asfreq('5min')
@@ -61,8 +77,7 @@ def seasonality_analysis(df: pd.DataFrame, save_path: str, save_name: str) -> st
         str: paths to the plots
     """
     # Create directories for saving plot images if they don't exist
-    images_folder = os.path.join(save_path, "images")
-    os.makedirs(images_folder, exist_ok=True)
+    images_folder = create_plot_directory(save_path)
 
     # Plot the original time series
     plt.figure(figsize=(7, 5))
@@ -118,68 +133,82 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     outliers = np.abs(z_scores) > 3
     cleaned_df1 = df.loc[~outliers]
 
-    Q1 = df['value'].quantile(0.25)
-    Q3 = df['value'].quantile(0.75)
+    Q1 = cleaned_df1['value'].quantile(0.25)
+    Q3 = cleaned_df1['value'].quantile(0.75)
     IQR = Q3 - Q1
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
-    cleaned_df2 = df[(df['value'] >= lower_bound) & (df['value'] <= upper_bound)]
-
-    return cleaned_df1, cleaned_df2
+    cleaned_df2 = cleaned_df1[(cleaned_df1['value'] >= lower_bound) & 
+                              (cleaned_df1['value'] <= upper_bound)]
+    return cleaned_df2
 
 # 5. Stationarity check
-def stationarity_check(cleaned_df2: pd.DataFrame) -> bool:
+def stationarity_check(df: pd.DataFrame) -> bool:
     """
     Check the stationarity of the timeseries
 
     Args:
-        cleaned_df2 (pd.DataFrame): data cleaned with boxplot
+        df (pd.DataFrame): data cleaned with boxplot
 
     Returns:
         bool: check stationarity of data. 
             True: the data is stationary, 
             False: the data isn't stationary
     """
-    result = adfuller(cleaned_df2["value"].dropna())
+    result = adfuller(df["value"].dropna())
     print(f"ADF Statistic: {result[0]}, p-value: {result[1]}")
     if result[1] > 0.05:
-        cleaned_df2["value"] = cleaned_df2["value"].diff().dropna()
-    return result[1] < 0.05
+        df["value"] = df["value"].diff().dropna()
+    return df
 
-# 6. Finding p and q
-def autocorrelation_plot(cleaned_df2: pd.DataFrame, save_path, test_size = 36) -> str:
+# 6. Forecasting with ARIMA
+def auto_arima_forecast(df: pd.DataFrame, m: int, save_path: str, save_name: str) -> str:
     """
-    Plot auto-correlation to find p and q
+    Plot Arima forecasting
 
     Args:
-        cleaned_df2 (pd.DataFrame): the cleaned dataset
-
-        test_size (int, optional): choose test size. Defaults to 36.
+        df (pd.DataFrame): Cleaned dataset
+        m (int): frequecy of series, passed into auto_arima model
+        save_path (str): path to save the images
+        save_name (str): saved name of the images
 
     Returns:
-        str: _description_
+        str: Path to the timeseries prediction graph
     """
-    images_folder = os.path.join(save_path, "images")
-    os.makedirs(images_folder, exist_ok=True)
 
-#############################################################
-
-# 7. Forecasting with ARIMA
-def arima_forecast(train, test, order=(1, 0, 0)):
     train, test = temporal_train_test_split(df, test_size=36)
 
-    model = ARIMA(train, order=order)
-    model_fit = model.fit()
-    forecast = model_fit.forecast(steps=len(test))
-    
-    plt.figure(figsize=(10, 5))
-    plt.plot(train.index, train, label='Train')
-    plt.plot(test.index, test, label='Test')
-    plt.plot(test.index, forecast, label='Forecast')
-    plt.legend()
-    plt.title('ARIMA Forecast')
-    plt.show()
-    
-    rmse = np.sqrt(mean_squared_error(test, forecast))
-    print(f"RMSE: {rmse}")
-    return forecast, rmse
+    auto_model = pm.auto_arima(train, start_p=1, start_q=1,
+                      test='adf', # use adftest to find optimal 'd'
+                      m=m, # frequency of series
+                      d=None, # let model determine 'd'
+                      seasonal=True, # Use Seasonality
+                      information_criterion='aicc',
+                      error_action='ignore',
+                      suppress_warnings=True,
+                      stepwise=True)
+    print(auto_model.summary())
+
+    images_folder = create_plot_directory(save_path)
+
+    # Plot diagnostics graphs
+    auto_model.plot_diagnostics(figsize=(14, 6))
+    diagnostics_path = os.path.join(images_folder, f"diagnostics_plot_{save_name}.png")
+    plt.savefig(diagnostics_path)
+    plt.close()
+
+    # Graph the prediction
+    history = train
+    auto_predictions = auto_model.predict(len(test))
+    test.loc[:, 'auto_predictions'] = auto_predictions.copy()
+    plt.plot(test['auto_predictions'], color='red', label='prediction')
+    plt.plot(test['value'], color='blue', label='actual')
+    plt.legend(loc="upper left")
+    prediction_path = os.path.join(images_folder, f"prediction_{save_name}.png")
+    plt.savefig(prediction_path) 
+
+    # evaluate forecasts
+    rmse = sqrt(mean_squared_error(test['auto_predictions'], test['value']))
+    print('Test RMSE: %.3f' % rmse)
+
+    return diagnostics_path, prediction_path
